@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Étudiants GSI 2 25-26</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .student-item {
+            padding: 10px;
+            margin: 8px 0;
+            background-color: #f9f9f9;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .student-item strong {
+            color: #007bff;
+        }
+        .error {
+            color: #d32f2f;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Liste des Étudiants</h1>
+        <div id="liste"></div>
+    </div>
+
+    <script>
+        // Remplacer par l'ID de votre Google Sheet
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vTBQyz85rNI_H2ggOJzro19uGCFCRqrJHJXdFGlyq6aCxo6qlBn66pK1Bgn6ee2VZW_YGPprJIikyaU/pub?gid=755898939&single=true&output=csv`;
+
+        d3.csv(CSV_URL)
+            .then(data => {
+                d3.select('#liste')
+                    .selectAll('div')
+                    .data(data)
+                    .enter()
+                    .append('div')
+                    .attr('class', 'student-item')
+                    .html(d => {
+                        return `<strong>${d['Votre nom et prénom']}</strong>
+                        - <a target="_blank" href="https://github.com/${d['Votre login github']}/GSI2_SystemInfo_25-26">${d['Votre login github']}</a>
+                        - <a target="_blank" href="https://argument.generateur.art/admin/user/${d['Votre identifiant omeka']}">Identifiant Omeka = ${d['Votre identifiant omeka']}</a>`;
+                    });
+            })
+            .catch(error => {
+                d3.select('#liste')
+                    .append('div')
+                    .attr('class', 'error')
+                    .text('Erreur: Impossible de charger les données. Vérifiez l\'ID du Google Sheet et les permissions.');
+                console.error(error);
+            });
+    </script>
+</body>
+</html>
