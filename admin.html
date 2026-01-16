@@ -53,8 +53,10 @@
                 .text(d=>d["Votre login github"]+ " sources exercices")
             liensEtu.append("a").attr("href",d=>"https://"+d["Votre login github"]+".github.io/GSI2_SystemInfo_25-26/test.html")
                 .text(d=>"Page Test")
+            /*
             liensEtu.append("a").attr("href",d=>"https://"+d["Votre login github"]+".github.io/GSI2_SystemInfo_25-26/arguments.html")
                 .text(d=>"Page arguments")
+            */
             liensEtu.append('div').append('button')
                     .text('Voir les arguments')
                     .on('click',showArguments);
@@ -89,7 +91,7 @@
                     return {'p':p,d:d};
                 })).enter().append('li'),
                 liensVirtual = argus.append('div').attr('id',d=>"virtualArgu"+d['o:id']).attr('class','liens')
-                    .selectAll('span').data(d=>d["argu:generateur"].slice(1)).enter().append('span').html(d=>{
+                    .selectAll('span').data(d=>d["argu:generateur"] ? d["argu:generateur"].slice(1) : []).enter().append('span').html(d=>{
                         if(d.type=='resource')
                             return "<a target-'_blank' href='"+d['@id'].replace('api/items','admin/item')+"'>"+d.display_title+"</a>";
                         else 
@@ -109,8 +111,12 @@
                     .text(d=>d["o:title"]);
                 //le bouton de génération
                 liensArgu.append('button')
-                    .text('Générer des arguments')
+                    .text('Générer un argument')
                     .on('click',genereArgument);
+                //le bouton pour tout générer
+                liensArgu.append('button')
+                    .text('Générer la carte des arguments')
+                    .on('click',genereCartoArgument);
 
                 //et le div de résultat
                 argus.append('div').attr('id',d=>"resultArgu"+d['o:id']).attr('class','result');
@@ -136,6 +142,84 @@
                 })
 
         }
+        
+        let diagramCode, nodeIds;
+        async function genereCartoArgument(e,arg){
+
+            diagramCode = 'flowchart LR\n';
+            nodeIds = new Set();
+
+            // Construire le diagramme pour cet argument
+            await buildMermaidDiagram(arg);
+
+            // Créer un conteneur pour le diagramme
+            let resultDiv = d3.select('#resultArgu'+arg['o:id']);
+            resultDiv.select('div').remove();
+            let mermaidDiv = resultDiv.append('div').attr('class', 'mermaid').text(diagramCode);
+
+            // Charger et afficher Mermaid
+            if (typeof mermaid === 'undefined') {
+                let script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js';
+                script.onload = () => {
+                    mermaid.contentLoaderFunction = undefined;
+                    mermaid.initialize({ startOnLoad: true });
+                    mermaid.contentLoaderFunction = (content) => content;
+                    mermaid.run();
+                };
+                document.head.appendChild(script);
+            } else {
+                mermaid.run();
+            }
+        }
+
+        // Parcourir la structure des arguments pour construire le diagramme
+        async function buildMermaidDiagram(arg, parentId = null) {
+            const currentId = 'arg' + arg['o:id'];
+            nodeIds.add(currentId);
+            
+            // Ajouter le nœud courant
+            diagramCode += `    ${currentId}["${arg['o:title']}"]\n`;
+            
+            // Créer les connexions avec les ressources liées
+            let rootId, txtId, resId;
+            if (arg["argu:generateur"]) {
+                for (let index = 0; index < arg["argu:generateur"].length; index++) {
+                    const element = arg["argu:generateur"][index];
+                    if(index==0){
+                        rootId = 'gen' + element['o:id'];
+                        diagramCode += `    ${rootId}["${element["@value"]}"]\n`;
+                        diagramCode += `    ${currentId} --> ${rootId}\n`;
+                    }else{
+                        if (element.type === 'resource') {
+                            resId = 'res' + element['o:id']+'_'+element.value_resource_id;
+                            diagramCode += `    ${resId}["${element.display_title}"]\n`;
+                            diagramCode += `    ${rootId} --> ${resId}\n`;
+                            //charge les possibilités
+                            let posis = await d3.json(element['@id']);
+                            posis[["dcterms:description"]].forEach((p,i) => {
+                                let posiId = 'posi' + element.value_resource_id+'_'+i;
+                                diagramCode += `    ${posiId}["${p['@value']}"]\n`;
+                                diagramCode += `    ${resId} --> ${posiId}\n`;
+                                
+                            });
+
+
+                        }else{
+                            txtId = 'txt' + element['o:id']+'_'+index;
+                            diagramCode += `    ${txtId}["${element["@value"]}"]\n`;
+                            diagramCode += `    ${rootId} --> ${txtId}\n`;
+                        }
+                    }
+                }
+            }
+            
+            if (parentId) {
+                diagramCode += `    ${parentId} --> ${currentId}\n`;
+            }
+        }
+
+
         function getAleaDescription(d){
             d3.json(d['@id'])
                 .then(rs=>{
